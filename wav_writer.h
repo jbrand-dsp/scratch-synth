@@ -12,7 +12,6 @@
 #define TWO_PI 6.283185f
 #define BUFFER_SIZE (SAMPLE_RATE * DATA_LENGTH_SECONDS)
 
-
 typedef struct {
     char riff[4]; 
     int32_t f_length;
