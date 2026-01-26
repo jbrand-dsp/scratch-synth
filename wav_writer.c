@@ -66,4 +66,3 @@ int write_wav_file(FILE *file, float audio_buffer[][NUM_CHANNELS]) {
 
   return 0;
 }
-
