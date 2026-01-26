@@ -9,7 +9,7 @@
 #define NUM_CHANNELS 1
 #define DATA_LENGTH_SECONDS 10
 #define WAVE_HEADER_LENGTH 44
-#define TWO_PI 6.283185f
+
 #define BUFFER_SIZE (SAMPLE_RATE * DATA_LENGTH_SECONDS)
 
 typedef struct {
