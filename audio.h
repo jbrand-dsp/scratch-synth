@@ -1,0 +1,5 @@
+#define TWO_PI 6.283185f
+#define INVERSE_SAMPLE_RATE (1.0f / 44100.0f)
+#define SAMPLE_RATE 44100
+#define NUM_CHANNELS 1
+#define BIT_DEPTH 16

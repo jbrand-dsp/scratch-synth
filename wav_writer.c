@@ -1,5 +1,6 @@
 #include "wav_writer.h"
 
+
 int init_wav_header(wav_header *header) {
 
   if (header == NULL) {

@@ -1,12 +1,9 @@
+#include "audio.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#define SAMPLE_RATE 44100
-#define INVERSE_SAMPLE_RATE (1.0f / 44100.0f)
-#define BIT_DEPTH 16
-#define NUM_CHANNELS 1
 #define DATA_LENGTH_SECONDS 10
 #define WAVE_HEADER_LENGTH 44
 
