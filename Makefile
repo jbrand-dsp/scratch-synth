@@ -7,3 +7,7 @@ build: clean main.c
 
 clean:
 	rm -f *.o synth
+
+format:
+	/opt/homebrew/opt/llvm/bin/clang-tidy *.c *.h -- -std=c99
+	clang-format -i *.c *.h
