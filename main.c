@@ -1,13 +1,11 @@
+#include "audio.h"
 #include "synth.h"
 #include "wav_writer.h"
-#include "audio.h"
 #include <math.h>
 #include <raylib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-
 
 typedef struct {
   float _phase;
@@ -22,11 +20,11 @@ void audio_callback(void *bufferData, unsigned int frames) {
   const float amplitude = 0.4f;
   const float p_increment = TWO_PI * frequency * INVERSE_SAMPLE_RATE;
 
-  for(unsigned int i = 0; i < frames; ++i) {
+  for (unsigned int i = 0; i < frames; ++i) {
     float val = sinf(note._phase) * amplitude;
     buffer[i] = val;
     note._phase += p_increment;
-    note._phase >= TWO_PI ? note._phase -= TWO_PI : note._phase; 
+    note._phase >= TWO_PI ? note._phase -= TWO_PI : note._phase;
   }
 }
 
@@ -54,4 +52,3 @@ int main() {
 
   return 0;
 }
-
