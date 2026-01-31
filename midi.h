@@ -78,6 +78,7 @@ void parseMidiFIle(FILE *file) {
   //Parse first track header
   track_header t;
   uint8_t track_buffer[MIDI_TRACK_HEADER_SIZE];
+  uint8_t stream[1];
 
   for(int i = 0; i < h.num_tracks; ++i) {
     fread(track_buffer, 1, 8, file);
@@ -85,7 +86,28 @@ void parseMidiFIle(FILE *file) {
     t.track_length = read_uint32_be(track_buffer + 4); 
 
     int bytes_remaining = t.track_length;
+    int num_bytes_consumed_by_delta_time = 0;
+    int num_bytes_consumed_by_event = 0;
     while(bytes_remaining != 0) {
+
+      //read first bite
+      fread(stream, 1, 1, file);
+      int n = 0;
+      int d_time = 0;
+      int value = 0;
+      int byte = stream[n];
+      value = byte & 0x7F;
+      d_time = (d_time << 7) | value;
+      num_bytes_consumed_by_delta_time++;
+      //continue reading if MSB == 1
+      while(byte & 0x80){
+        fread(stream, 1, 1, file);
+        byte = stream[n];
+        value = byte & 0x7F; // mask off MSB
+        d_time = (d_time << 7) | value; // add value to delta time
+        num_bytes_consumed_by_delta_time++;
+      }
+
       //parse midi
       bytes_remaining--;
     }
