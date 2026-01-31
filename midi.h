@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #define MIDI_HEADER_SIZE 14
+#define MIDI_TRACK_HEADER_SIZE 8
 
 typedef uint8_t MidiStatus;
 
@@ -13,6 +14,11 @@ typedef struct {
   uint16_t division;
 } midi_header;
 
+typedef struct {
+  char MTrk[4]; // Chunk ID
+  uint32_t track_length; 
+} track_header;
+
 uint16_t swap16(uint16_t val) { return (val >> 8) | (val << 8); }
 
 uint32_t swap32(uint32_t val) {
@@ -20,19 +26,72 @@ uint32_t swap32(uint32_t val) {
          (val << 24);
 }
 
+uint16_t read_uint16_be(const uint8_t *buf) {
+    return ((uint16_t)buf[0] << 8) | ((uint16_t)buf[1]);
+}
+
+uint32_t read_uint32_be(const uint8_t *buf) {
+    return ((uint32_t)buf[0] << 24) |
+           ((uint32_t)buf[1] << 16) |
+           ((uint32_t)buf[2] << 8)  |
+           ((uint32_t)buf[3]);
+}
+
+track_header parseTrackHeader(FILE *file) {
+  uint8_t buffer[MIDI_TRACK_HEADER_SIZE];
+  fread(buffer, 1, 2, file);
+
+  track_header h;
+  memcpy(h.MTrk, buffer, 4);
+  h.track_length = swap32((uint32_t *)(buffer + 4));
+}
+
+
+
 midi_header parseMidiHeader(FILE *file) {
   uint8_t buffer[MIDI_HEADER_SIZE];
   fread(buffer, 1, 14, file);
 
+  //MIDI header is encoded in Big Endian hence the conversion to little Endian
   midi_header h;
   memcpy(h.MThd, buffer, 4);
-  h.header_length = swap32(*(uint32_t *)(buffer + 4));
-  h.format = swap16(*(uint16_t *)(buffer + 8));
-  h.num_tracks = swap16(*(uint16_t *)(buffer + 10));
-  h.division = swap16(*(uint16_t *)(buffer + 12));
+  h.header_length = read_uint16_be(buffer + 4); //Is 4 this correct??
+  h.format = read_uint16_be(buffer + 8);
+  h.num_tracks = read_uint16_be(buffer + 10);
+  h.division = read_uint16_be(buffer + 12);
 
   return h;
 }
+
+void parseMidiFIle(FILE *file) {
+  uint8_t buffer[MIDI_HEADER_SIZE];
+  fread(buffer, 1, 14, file);
+
+  //MIDI header is encoded in big endian hence the conversion to little endian
+  midi_header h;
+  memcpy(h.MThd, buffer, 4);
+  h.header_length = read_uint32_be(buffer + 4);
+  h.format = read_uint16_be(buffer + 8);
+  h.num_tracks = read_uint16_be(buffer + 10);
+  h.division = read_uint16_be(buffer + 12);
+
+  //Parse first track header
+  track_header t;
+  uint8_t track_buffer[MIDI_TRACK_HEADER_SIZE];
+
+  for(int i = 0; i < h.num_tracks; ++i) {
+    fread(track_buffer, 1, 8, file);
+    memcpy(t.MTrk, track_buffer, 4);
+    t.track_length = read_uint32_be(track_buffer + 4); 
+
+    int bytes_remaining = t.track_length;
+    while(bytes_remaining != 0) {
+      //parse midi
+      bytes_remaining--;
+    }
+  }
+}
+
 
 enum {
   MIDI_NOTE_OFF = 0x80,
