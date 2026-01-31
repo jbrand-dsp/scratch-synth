@@ -29,14 +29,12 @@ void audio_callback(void *bufferData, unsigned int frames) {
   }
 }
 
-void midi_callback(){
-
-}
+void midi_callback() {}
 
 int main() {
   note._phase = 0.f;
 
-  MIDIClientRef client = 0; 
+  MIDIClientRef client = 0;
   MIDIPortRef inputPort = 0;
   MIDIEndpointRef source = 0;
   ItemCount sourceCount = MIDIGetNumberOfSources();
@@ -46,9 +44,9 @@ int main() {
     // Check if this is your Korg (by name or other means)
     // If so, use it as `source`
   }
-  //TODO: read up on correct initialisation of midi clients etc, 
+  // TODO: read up on correct initialisation of midi clients etc,
   MIDIClientCreate(CFSTR("Synth"), NULL, NULL, &client);
-  MIDIInputPortCreate(&client, CFSTR("Input"), midi_callback, NULL, &inputPort);
+  MIDIInputPortCreate(client, CFSTR("Input"), midi_callback, NULL, &inputPort);
   MIDIPortConnectSource(inputPort, source, NULL);
 
   InitWindow(800, 600, "Synth");
