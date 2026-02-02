@@ -42,7 +42,7 @@ typedef enum {
 
 // typedef struct {
 //   uint8_t event_type;
-//   uint8_t midi_channel;
+//   uint8_t channel;
 //   uint8_t param_1;
 //   uint8_t param_2;
 // } midi_event;
@@ -78,31 +78,33 @@ midi_file parseMidiFile(FILE *file) {
   midi_file m_file;
   uint8_t buffer[MIDI_HEADER_SIZE];
   fread(buffer, 1, 14, file);
+
   // MIDI header is encoded in big endian hence the conversion to little endian
   memcpy(m_file.header.MThd, buffer, 4);
   m_file.header.header_length = read_uint32_be(buffer + 4);
   m_file.header.format = read_uint16_be(buffer + 8);
   m_file.header.num_tracks = read_uint16_be(buffer + 10);
   m_file.header.division = read_uint16_be(buffer + 12);
-
-  // Parse first track header
-  track_header t;
-  uint8_t track_buffer[MIDI_TRACK_HEADER_SIZE];
-  uint8_t stream[1];
+  m_file.tracks = calloc(m_file.header.num_tracks, sizeof(midi_track));
 
   for (int i = 0; i < m_file.header.num_tracks; ++i) {
+    // Parse first track header
+    track_header t;
+    uint8_t track_buffer[MIDI_TRACK_HEADER_SIZE];
+    uint8_t stream[1];
 
     fread(track_buffer, 1, 8, file);
     memcpy(t.MTrk, track_buffer, 4);
     t.track_length = read_uint32_be(track_buffer + 4);
     int bytes_remaining = t.track_length;
-    int num_bytes_consumed_by_delta_time = 0;
-    int num_bytes_consumed_by_event = 0;
 
-    midi_track m_track;
-    m_track.event_count = 0;
+    midi_track *m_track = &m_file.tracks[i];
+    m_track->event_count = 0;
+    m_track->events = NULL;
 
-    while (bytes_remaining != 0) {
+    uint8_t running_status = 0;
+
+    while (bytes_remaining > 0) {
       midi_event m_event;
       // read first bite
       fread(stream, 1, 1, file);
@@ -112,7 +114,7 @@ midi_file parseMidiFile(FILE *file) {
       int byte = stream[n];
       value = byte & MIDI_VLQ_DATA_MASK;
       d_time = (d_time << 7) | value; // (d_time * 128) + value
-      num_bytes_consumed_by_delta_time++;
+      bytes_remaining--;
 
       // continue reading if MSB == 1
       while (byte & MIDI_VLQ_CONTINUATION) {
@@ -120,111 +122,69 @@ midi_file parseMidiFile(FILE *file) {
         byte = stream[n];
         value = byte & MIDI_VLQ_DATA_MASK;
         d_time = (d_time << 7) | value; // (d_time * 128) + value
-        num_bytes_consumed_by_delta_time++;
+        bytes_remaining--;
       }
 
       m_event.delta_time = d_time;
 
       // parse midi
       fread(stream, 1, 1, file);
-      num_bytes_consumed_by_event++;
+      bytes_remaining--;
       byte = stream[0];
       uint8_t status = 0;
-      uint8_t midi_channel = 0;
-      uint8_t MIDI_CHANNEL_MASK = 0x0F;
-      uint8_t running_status = 0;
+      uint8_t channel = 0;
 
-      status = byte & 0x80;
-      midi_channel = byte & MIDI_CHANNEL_MASK;
-      m_track.event_count++;
-
-      if (status) {
+      if (byte & 0x80) {
+        status = byte & 0x80;
+        channel = byte & 0x0F;
         running_status = byte;
       } else {
-        status = running_status;
+        status = running_status & 0xF0;
+        channel = running_status & 0x0F;
+        m_event.data1 = byte;
       }
-
-      fread(stream, 1, 1, file);
-      num_bytes_consumed_by_event++;
-      m_event.data1 = stream[0];
 
       switch (status) {
       case 0x80: // Note Off
         fread(stream, 1, 1, file);
-        num_bytes_consumed_by_event++;
+        bytes_remaining--;
         m_event.data2 = stream[0];
         break;
       case 0x90: // Note On
         fread(stream, 1, 1, file);
-        num_bytes_consumed_by_event++;
+        bytes_remaining--;
         m_event.data2 = stream[0];
         break;
       case 0xA0: // Poly Pressure
         fread(stream, 1, 1, file);
-        num_bytes_consumed_by_event++;
+        bytes_remaining--;
         m_event.data2 = stream[0];
         break;
       case 0xB0: // CC
         fread(stream, 1, 1, file);
-        num_bytes_consumed_by_event++;
+        bytes_remaining--;
         m_event.data2 = stream[0];
         break;
       case 0xC0: // Program Change
+        m_event.data2 = 0;
         break;
       case 0xD0: // Channel Pressure
+        m_event.data2 = 0;
         break;
       case 0xE0: // Pitch Bend
         fread(stream, 1, 1, file);
-        num_bytes_consumed_by_event++;
+        bytes_remaining--;
         m_event.data2 = stream[0];
         break;
       }
 
-      // TODO handle Meta & SysEx events
+      m_track->events = realloc(m_track->events, (m_track->event_count + 1) *
+                                                     sizeof(midi_event));
+      m_track->events[m_track->event_count++] = m_event;
 
-      bytes_remaining -= num_bytes_consumed_by_delta_time;
-      bytes_remaining -= num_bytes_consumed_by_event;
+      // TODO handle Meta & SysEx events
     }
   }
 
   return m_file;
 }
-
-/**
- *
- * parseFile(){
- *
- * -stream
- *
- * lamda
- * -swap byte order
- *
- * lamda
- * -readstring
- *
- * lamda
- * -readvalue
- *  check most significant bit while MSB set
- *
- * header:
- *
- *
- *  while not eof
- *
- *  for each track log event types
- *
- *
- * }
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- * **/
