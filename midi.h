@@ -79,16 +79,19 @@ midi_file parseMidiFile(FILE *file) {
   uint8_t buffer[MIDI_HEADER_SIZE];
   fread(buffer, 1, 14, file);
 
-  // MIDI header is encoded in big endian hence the conversion to little endian
+  // Parse header
   memcpy(m_file.header.MThd, buffer, 4);
-  m_file.header.header_length = read_uint32_be(buffer + 4);
+  m_file.header.header_length =
+      read_uint32_be(buffer + 4); // big to little endian
   m_file.header.format = read_uint16_be(buffer + 8);
   m_file.header.num_tracks = read_uint16_be(buffer + 10);
   m_file.header.division = read_uint16_be(buffer + 12);
+
+  // allocate tracks
   m_file.tracks = calloc(m_file.header.num_tracks, sizeof(midi_track));
 
   for (int i = 0; i < m_file.header.num_tracks; ++i) {
-    // Parse first track header
+    // Parse track header
     track_header t;
     uint8_t track_buffer[MIDI_TRACK_HEADER_SIZE];
     uint8_t stream[1];
@@ -102,24 +105,24 @@ midi_file parseMidiFile(FILE *file) {
     m_track->event_count = 0;
     m_track->events = NULL;
 
+    // init running_status
     uint8_t running_status = 0;
 
     while (bytes_remaining > 0) {
       midi_event m_event;
-      // read first bite
+
+      // parse delta-time
       fread(stream, 1, 1, file);
-      int n = 0; // TODO: check if n always 0
       int d_time = 0;
       int value = 0;
-      int byte = stream[n];
+      int byte = stream[0];
       value = byte & MIDI_VLQ_DATA_MASK;
       d_time = (d_time << 7) | value; // (d_time * 128) + value
       bytes_remaining--;
 
-      // continue reading if MSB == 1
-      while (byte & MIDI_VLQ_CONTINUATION) {
+      while (byte & MIDI_VLQ_CONTINUATION) { // continue reading if MSB == 1
         fread(stream, 1, 1, file);
-        byte = stream[n];
+        byte = stream[0];
         value = byte & MIDI_VLQ_DATA_MASK;
         d_time = (d_time << 7) | value; // (d_time * 128) + value
         bytes_remaining--;
@@ -127,12 +130,23 @@ midi_file parseMidiFile(FILE *file) {
 
       m_event.delta_time = d_time;
 
-      // parse midi
+      // parse midi event
       fread(stream, 1, 1, file);
       bytes_remaining--;
       byte = stream[0];
       uint8_t status = 0;
       uint8_t channel = 0;
+
+      // if (byte == 0xFF) {
+      //   fread(stream, 1, 1, file); // meta type
+      //   uint8_t meta_type = stream[0];
+
+      //   uint32_t len = read_vlq(file);
+      //   fseek(file, len, SEEK_CUR);
+
+      //   if (meta_type == 0x2F) break; // End of Track
+      //   continue;
+      // }
 
       if (byte & 0x80) {
         status = byte & 0x80;
@@ -178,6 +192,7 @@ midi_file parseMidiFile(FILE *file) {
         break;
       }
 
+      // append event to track
       m_track->events = realloc(m_track->events, (m_track->event_count + 1) *
                                                      sizeof(midi_event));
       m_track->events[m_track->event_count++] = m_event;
